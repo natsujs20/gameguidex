@@ -20,6 +20,15 @@ return Application::configure(
             $middleware->alias([
                 'jwt' => JwtMiddleware::class,
             ]);
+
+            /*
+             * Railway (y la mayoría de plataformas serverless) termina el
+             * TLS y reenvía las peticiones por HTTP internamente. Sin esto,
+             * Laravel no confía en el header X-Forwarded-Proto y genera
+             * URLs de assets/rutas como http:// aunque el visitante esté
+             * en https://, lo que el navegador bloquea como "mixed content".
+             */
+            $middleware->trustProxies(at: '*');
         }
     )
     ->withExceptions(
