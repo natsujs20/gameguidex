@@ -1,0 +1,70 @@
+GAMEGUIDEX — CENTRO DE DRAGON BALL
+==================================
+
+Esta versión incorpora el primer catálogo completo de Dragon Ball:
+
+- Centro de información de la saga.
+- Catálogo de Budokai Tenkaichi 3.
+- 90 personajes y transformaciones.
+- 90 iconos de selección de 64 x 64.
+- 90 ilustraciones transparentes de 256 x 512.
+- 90 retratos transparentes de 256 x 512.
+- Buscador por nombre, transformación, saga y raza.
+- Filtros por saga y raza.
+- Fichas individuales.
+- Transformaciones relacionadas automáticamente.
+- Técnicas verificadas para personajes seleccionados.
+- Espacios preparados para puntos DP y desbloqueos específicos.
+- Diseño responsive para escritorio, tablet y teléfono.
+
+RUTAS NUEVAS
+------------
+
+/guias/dragon-ball
+/dragon-ball/personajes
+/dragon-ball/personajes/goku
+
+PRIMER INICIO
+-------------
+
+La base de datos incluida ya contiene los 90 personajes. Normalmente basta:
+
+php artisan optimize:clear
+php artisan serve
+
+Para compilar los estilos durante el desarrollo utiliza otra terminal:
+
+npm run dev
+
+SI UTILIZAS OTRA BASE DE DATOS
+------------------------------
+
+php artisan migrate
+php artisan db:seed --class=DragonBallSeeder
+php artisan optimize:clear
+
+PRUEBAS
+-------
+
+php artisan test --filter=DragonBallCatalogTest
+npm run build
+
+ARCHIVOS PRINCIPALES
+--------------------
+
+app/Http/Controllers/DragonBallController.php
+app/Models/PersonajeDragonBall.php
+app/Models/TecnicaDragonBall.php
+database/migrations/2026_07_29_000001_create_dragon_ball_tables.php
+database/seeders/DragonBallSeeder.php
+resources/views/guias/dragon-ball/index.blade.php
+resources/views/dragon-ball/personajes/index.blade.php
+resources/views/dragon-ball/personajes/show.blade.php
+resources/css/dragon-ball.css
+
+NOTA SOBRE LOS DATOS
+--------------------
+
+No se inventaron valores DP ni requisitos exactos de desbloqueo. Esos campos
+quedaron preparados y se completarán después de contrastarlos con información
+del juego. De esta forma la página puede crecer sin publicar cifras falsas.

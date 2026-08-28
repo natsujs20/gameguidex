@@ -1,0 +1,93 @@
+/* =========================================================
+   GAMEGUIDEX — HOJA DE ESTILOS PRINCIPAL (entrypoint de Vite)
+   =========================================================
+
+   Este archivo solo contiene:
+     1. La carga de tipografías.
+     2. El import del sistema visual (shell.css).
+     3. El reset y los estilos base de elementos HTML.
+
+   Todo lo que sea sistema de diseño (tokens de color, header,
+   sidebar, tarjetas, botones, tablas, formularios...) vive en
+   shell.css. Si necesitas cambiar la identidad visual, empieza
+   por los tokens de :root en shell.css.
+   ========================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+@import "./shell.css";
+
+/* =========================================================
+   RESET Y BASE
+   ========================================================= */
+
+:root {
+    color-scheme: dark;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-synthesis: none;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    min-width: 320px;
+    min-height: 100vh;
+    color: var(--gtx-text);
+    background: var(--gtx-bg);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+body,
+button,
+input,
+textarea,
+select {
+    font-family: 'Inter', system-ui, sans-serif;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+button {
+    border: 0;
+    color: inherit;
+    background: none;
+    cursor: pointer;
+}
+
+img {
+    max-width: 100%;
+    display: block;
+}
+
+/*
+ * Foco visible para navegación por teclado. Se define una sola vez
+ * aquí para que todos los elementos interactivos lo hereden.
+ */
+:focus-visible {
+    outline: 2px solid var(--gtx-accent);
+    outline-offset: 2px;
+}
+
+/* Ancho máximo del contenido, compartido por todas las páginas. */
+.container {
+    width: min(1240px, calc(100% - 48px));
+    margin-inline: auto;
+}
+
+@media (max-width: 760px) {
+    .container {
+        width: min(100% - 32px, 1240px);
+    }
+}
