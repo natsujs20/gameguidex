@@ -1269,15 +1269,43 @@
     align-items: start;
 }
 
+.gtx-detail-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
 .gtx-detail-media {
     overflow: hidden;
     aspect-ratio: 4 / 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gtx-trailer {
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+}
+
+.gtx-trailer video {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: #000;
 }
 
 .gtx-detail-media img {
+    /*
+     * contain (no cover): las portadas mezclan formato vertical
+     * (cajas de juego) y horizontal (capturas de Steam). Con cover,
+     * las horizontales quedaban recortadas dentro de la caja
+     * vertical. Con contain se ve la imagen completa, con el fondo
+     * del panel rellenando los espacios sobrantes.
+     */
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .gtx-detail-content h1 {
@@ -1386,6 +1414,16 @@
 @media (max-width: 760px) {
     .gtx-detail-layout {
         grid-template-columns: 1fr;
+    }
+
+    /*
+     * En una sola columna, mantener el 4/5 hace que la portada ocupe
+     * casi toda la pantalla antes de llegar al texto. Se limita el
+     * alto para que siempre quede algo de la ficha visible debajo.
+     */
+    .gtx-detail-media {
+        aspect-ratio: auto;
+        height: 46vh;
     }
 }
 

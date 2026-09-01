@@ -12,11 +12,21 @@
 
     <div class="gtx-detail-layout">
 
-        <div class="gtx-detail-media gtx-card">
-            @if($juego->imagen_url)
-                <img src="{{ $juego->imagen_url }}" alt="{{ $juego->nombre }}">
-            @else
-                <div class="gtx-item-media-placeholder">GAME</div>
+        <div class="gtx-detail-col">
+            <div class="gtx-detail-media gtx-card">
+                @if($juego->imagen_url)
+                    <img src="{{ $juego->imagen_url }}" alt="{{ $juego->nombre }}">
+                @else
+                    <div class="gtx-item-media-placeholder">GAME</div>
+                @endif
+            </div>
+
+            @if($juego->trailer_url)
+                <div class="gtx-trailer gtx-card" data-hls-src="{{ $juego->trailer_url }}">
+                    <video controls playsinline preload="none"
+                        @if($juego->imagen_url) poster="{{ $juego->imagen_url }}" @endif
+                    ></video>
+                </div>
             @endif
         </div>
 
@@ -71,6 +81,17 @@
                         <strong>Sin descarga oficial</strong>
                         <p>Este juego actualmente no posee una venta o descarga digital oficial.</p>
                     </div>
+                @endif
+
+                @if($juego->trailer_url)
+                    <a
+                        href="{{ $juego->trailer_url }}"
+                        class="gtx-btn gtx-btn-secondary"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        ▶ Ver tráiler
+                    </a>
                 @endif
 
                 <x-favorito-boton :elemento="$juego" tipo="juego" />

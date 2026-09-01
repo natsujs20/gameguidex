@@ -293,8 +293,25 @@ class ImportarJuegosSteam extends Command
 
         $juegoExistente = Juego::query()
             ->where('steam_app_id', $appId)
-            ->orWhere('nombre', $nombre)
+            ->orWhereLike('nombre', $nombre)
             ->first();
+
+        /*
+         * Si el nombre coincide con un juego que ya teníamos curado a
+         * mano (steam_importado = false), no pisamos su descripción ni
+         * demás datos: solo lo enlazamos con su AppID de Steam. Esto
+         * evitó que una búsqueda genérica ("Monster Hunter") sobrescribiera
+         * fichas ya revisadas manualmente.
+         */
+        if ($juegoExistente && !$juegoExistente->steam_importado) {
+            $juegoExistente->update([
+                'steam_app_id' => $appId,
+                'steam_url' => "https://store.steampowered.com/app/{$appId}",
+                'trailer_url' => $this->obtenerTrailer($datos['movies'] ?? []),
+            ]);
+
+            return 'omitido';
+        }
 
         $plataformas = $this->obtenerPlataformas(
             $datos['platforms'] ?? []
@@ -386,6 +403,7 @@ class ImportarJuegosSteam extends Command
 
             'steam_app_id' => $appId,
             'steam_url' => $steamUrl,
+            'trailer_url' => $this->obtenerTrailer($datos['movies'] ?? []),
             'steam_importado' => true,
             'steam_actualizado_at' => now(),
         ];
@@ -403,6 +421,33 @@ class ImportarJuegosSteam extends Command
         );
 
         return 'creado';
+    }
+
+    /**
+     * Obtener la URL del tráiler principal desde el campo
+     * "movies" que entrega Steam en appdetails.
+     *
+     * Steam retiró los enlaces directos a mp4/webm que entregaba
+     * antes: hoy solo da manifiestos de streaming (dash_h264,
+     * dash_av1, hls_h264). Se guarda hls_h264 por ser el más
+     * compatible (HLS nativo en Safari/iOS); en navegadores que no
+     * lo soportan de forma nativa (Chrome, Firefox) requeriría una
+     * librería JS como hls.js para reproducirse en un <video> normal.
+     */
+    private function obtenerTrailer(array $movies): ?string
+    {
+        $primero = $movies[0] ?? null;
+
+        if (!is_array($primero)) {
+            return null;
+        }
+
+        return $primero['mp4']['max']
+            ?? $primero['mp4']['480']
+            ?? $primero['webm']['max']
+            ?? $primero['webm']['480']
+            ?? $primero['hls_h264']
+            ?? null;
     }
 
     /**
