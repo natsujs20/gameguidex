@@ -33,6 +33,7 @@ class Juego extends Model
         'enlace_emulador',
         'steam_app_id',
         'steam_url',
+        'trailer_url',
         'steam_importado',
         'steam_actualizado_at',
     ];
