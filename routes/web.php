@@ -10,6 +10,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\JuegoController;
 use App\Http\Controllers\MonsterHunterController;
 use App\Http\Controllers\MonstruoController;
+use App\Http\Controllers\PerfilController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -130,6 +131,22 @@ Route::post('/favoritos/alternar', [FavoritoController::class, 'alternar'])
 
 Route::get('/estadisticas', [EstadisticasController::class, 'index'])
     ->name('estadisticas.index');
+
+Route::get('/perfil', [PerfilController::class, 'index'])
+    ->middleware('auth')
+    ->name('perfil.index');
+
+Route::put('/perfil', [PerfilController::class, 'actualizar'])
+    ->middleware('auth')
+    ->name('perfil.actualizar');
+
+Route::delete('/perfil', [PerfilController::class, 'destruir'])
+    ->middleware('auth')
+    ->name('perfil.destruir');
+
+Route::post('/perfil/jugados/alternar', [PerfilController::class, 'alternarJugado'])
+    ->middleware('auth')
+    ->name('perfil.jugados.alternar');
 
 /*
 |--------------------------------------------------------------------------

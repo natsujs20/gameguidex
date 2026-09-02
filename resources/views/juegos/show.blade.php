@@ -95,6 +95,7 @@
                 @endif
 
                 <x-favorito-boton :elemento="$juego" tipo="juego" />
+                <x-jugado-boton :juego="$juego" />
             </div>
 
             @if($juego->enlace_emulador)
