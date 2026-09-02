@@ -142,11 +142,11 @@ Route::put('/perfil', [PerfilController::class, 'actualizar'])
     ->name('perfil.actualizar');
 
 Route::put('/perfil/clave', [PerfilController::class, 'actualizarClave'])
-    ->middleware('auth')
+    ->middleware(['auth', 'throttle:5,1'])
     ->name('perfil.clave');
 
 Route::delete('/perfil', [PerfilController::class, 'destruir'])
-    ->middleware('auth')
+    ->middleware(['auth', 'throttle:5,1'])
     ->name('perfil.destruir');
 
 Route::post('/perfil/jugados/alternar', [PerfilController::class, 'alternarJugado'])
@@ -169,17 +169,27 @@ Route::middleware('guest')->group(function () {
     Route::post(
         '/registro',
         [AuthController::class, 'registrar']
-    )->name('register.store');
+    )
+        ->middleware('throttle:5,1')
+        ->name('register.store');
 
     Route::get(
         '/login',
         [AuthController::class, 'mostrarLogin']
     )->name('login');
 
+    /*
+     * Sin este límite, cualquiera podía probar contraseñas sin
+     * restricción contra una cuenta conocida (fuerza bruta). 5
+     * intentos por minuto por IP+sesión es suficiente para un
+     * usuario real que se equivoca escribiendo su clave.
+     */
     Route::post(
         '/login',
         [AuthController::class, 'iniciarSesion']
-    )->name('login.store');
+    )
+        ->middleware('throttle:5,1')
+        ->name('login.store');
 
     Route::get(
         '/clave-olvidada',
@@ -189,7 +199,9 @@ Route::middleware('guest')->group(function () {
     Route::post(
         '/clave-olvidada',
         [PasswordResetController::class, 'enviarEnlace']
-    )->name('password.email');
+    )
+        ->middleware('throttle:5,1')
+        ->name('password.email');
 
     Route::get(
         '/restablecer-clave/{token}',
@@ -199,7 +211,9 @@ Route::middleware('guest')->group(function () {
     Route::post(
         '/restablecer-clave',
         [PasswordResetController::class, 'restablecer']
-    )->name('password.update');
+    )
+        ->middleware('throttle:5,1')
+        ->name('password.update');
 });
 
 /*
