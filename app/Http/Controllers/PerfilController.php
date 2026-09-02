@@ -14,19 +14,58 @@ class PerfilController extends Controller
 {
     /**
      * Mostrar el perfil del usuario autenticado: sus datos, sus
-     * juegos jugados y accesos a favoritos/estadísticas.
+     * juegos jugados y un resumen real de su actividad. Todo lo que
+     * se muestra sale de conteos reales de la base de datos, nunca
+     * de cifras fijas.
      */
     public function index(Request $request): View
     {
         $usuario = $request->user();
 
+        $juegosJugados = $usuario->juegosJugados()
+            ->orderByDesc('juegos_jugados.jugado_en')
+            ->get();
+
         return view('perfil.index', [
-            'juegosJugados' => $usuario->juegosJugados()
-                ->orderByDesc('juegos_jugados.jugado_en')
-                ->get(),
+            'juegosJugados' => $juegosJugados,
 
             'totalFavoritos' => $usuario->favoritos()->count(),
+            'totalVisitas' => $usuario->historial()->count(),
+
+            'actividadReciente' => $usuario->historial()
+                ->with('elemento')
+                ->latest('visitado_en')
+                ->take(5)
+                ->get()
+                ->filter(fn ($visita) => $visita->elemento !== null),
+
+            'franquiciaFavorita' => $this->franquiciaFavorita($usuario),
         ]);
+    }
+
+    /**
+     * Franquicia que más se repite entre los juegos favoritos y
+     * jugados del usuario. Es un dato calculado en el momento a
+     * partir de actividad real, no un campo guardado ni inventado.
+     */
+    private function franquiciaFavorita($usuario): ?string
+    {
+        $franquiciasFavoritos = $usuario->favoritos()
+            ->where('elemento_type', 'juego')
+            ->with('elemento')
+            ->get()
+            ->pluck('elemento.franquicia');
+
+        $franquiciasJugadas = $usuario->juegosJugados()
+            ->pluck('franquicia');
+
+        $masFrecuente = $franquiciasFavoritos
+            ->merge($franquiciasJugadas)
+            ->filter()
+            ->countBy()
+            ->sortDesc();
+
+        return $masFrecuente->keys()->first();
     }
 
     /**
@@ -59,6 +98,37 @@ class PerfilController extends Controller
         $usuario->update($datos);
 
         return back()->with('success', 'Tus datos se actualizaron correctamente.');
+    }
+
+    /**
+     * Cambiar la clave del usuario autenticado (ya con sesión
+     * iniciada). Distinto del flujo de "clave olvidada": aquí se
+     * pide la clave actual en vez de un enlace por correo.
+     */
+    public function actualizarClave(Request $request): RedirectResponse
+    {
+        $usuario = $request->user();
+
+        $datos = $request->validate([
+            'clave_actual' => ['required', 'string'],
+            'clave_nueva' => ['required', 'string', 'min:8', 'confirmed'],
+        ], [
+            'clave_actual.required' => 'Debes ingresar tu clave actual.',
+            'clave_nueva.min' => 'La clave nueva debe tener al menos 8 caracteres.',
+            'clave_nueva.confirmed' => 'Las claves nuevas no coinciden.',
+        ]);
+
+        if (!Hash::check($datos['clave_actual'], $usuario->clave)) {
+            return back()->withErrors([
+                'clave_actual' => 'La clave actual no es correcta.',
+            ]);
+        }
+
+        $usuario->update([
+            'clave' => Hash::make($datos['clave_nueva']),
+        ]);
+
+        return back()->with('success', 'Tu clave se actualizó correctamente.');
     }
 
     /**
