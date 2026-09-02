@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('titulo', 'Iniciar sesión | GameGuideX')
+@section('titulo', 'Definir clave nueva | GameGuideX')
 
 @section('contenido')
 
@@ -8,12 +8,14 @@
 
     <section class="gtx-card gtx-auth-card">
 
-        <span class="gtx-item-eyebrow">BIENVENIDO DE NUEVO</span>
-        <h1>Iniciar sesión</h1>
-        <p>Ingresa a tu cuenta para administrar tus proyectos y continuar explorando GameGuideX.</p>
+        <span class="gtx-item-eyebrow">RECUPERAR ACCESO</span>
+        <h1>Define tu clave nueva</h1>
+        <p>Elige una clave nueva para tu cuenta.</p>
 
-        <form method="POST" action="{{ route('login.store') }}" novalidate>
+        <form method="POST" action="{{ route('password.update') }}" novalidate>
             @csrf
+
+            <input type="hidden" name="token" value="{{ $token }}">
 
             <div class="gtx-auth-field">
                 <label for="correo">Correo</label>
@@ -21,7 +23,7 @@
                     id="correo"
                     name="correo"
                     type="email"
-                    value="{{ old('correo') }}"
+                    value="{{ old('correo', $correo) }}"
                     class="@error('correo') is-invalid @enderror"
                     autocomplete="email"
                     required
@@ -33,41 +35,39 @@
             </div>
 
             <div class="gtx-auth-field">
-                <label for="clave">Clave</label>
+                <label for="clave">Clave nueva</label>
                 <input
                     id="clave"
                     name="clave"
                     type="password"
                     class="@error('clave') is-invalid @enderror"
-                    autocomplete="current-password"
+                    autocomplete="new-password"
+                    minlength="8"
                     required
                 >
+                <span class="gtx-auth-help">Utiliza al menos 8 caracteres.</span>
                 @error('clave')
                     <span class="gtx-auth-error">{{ $message }}</span>
                 @enderror
             </div>
 
-            <div class="gtx-auth-options">
-                <label>
-                    <input type="checkbox" name="remember" value="1" @checked(old('remember'))>
-                    <span>Mantener mi sesión iniciada</span>
-                </label>
-
-                <a href="{{ route('password.request') }}" class="gtx-auth-link">
-                    ¿Olvidaste tu clave?
-                </a>
+            <div class="gtx-auth-field">
+                <label for="clave_confirmation">Confirmar clave nueva</label>
+                <input
+                    id="clave_confirmation"
+                    name="clave_confirmation"
+                    type="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                >
             </div>
 
             <button type="submit" class="gtx-btn gtx-btn-primary">
-                Entrar a GameGuideX
+                Guardar clave nueva
             </button>
 
         </form>
-
-        <p class="gtx-auth-footer">
-            ¿Todavía no tienes una cuenta?
-            <a href="{{ route('register') }}">Regístrate</a>
-        </p>
 
     </section>
 

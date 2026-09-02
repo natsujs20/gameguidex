@@ -10,6 +10,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\JuegoController;
 use App\Http\Controllers\MonsterHunterController;
 use App\Http\Controllers\MonstruoController;
+use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\PerfilController;
 use Illuminate\Support\Facades\Route;
 
@@ -140,6 +141,10 @@ Route::put('/perfil', [PerfilController::class, 'actualizar'])
     ->middleware('auth')
     ->name('perfil.actualizar');
 
+Route::put('/perfil/clave', [PerfilController::class, 'actualizarClave'])
+    ->middleware('auth')
+    ->name('perfil.clave');
+
 Route::delete('/perfil', [PerfilController::class, 'destruir'])
     ->middleware('auth')
     ->name('perfil.destruir');
@@ -175,6 +180,26 @@ Route::middleware('guest')->group(function () {
         '/login',
         [AuthController::class, 'iniciarSesion']
     )->name('login.store');
+
+    Route::get(
+        '/clave-olvidada',
+        [PasswordResetController::class, 'mostrarOlvide']
+    )->name('password.request');
+
+    Route::post(
+        '/clave-olvidada',
+        [PasswordResetController::class, 'enviarEnlace']
+    )->name('password.email');
+
+    Route::get(
+        '/restablecer-clave/{token}',
+        [PasswordResetController::class, 'mostrarRestablecer']
+    )->name('password.reset');
+
+    Route::post(
+        '/restablecer-clave',
+        [PasswordResetController::class, 'restablecer']
+    )->name('password.update');
 });
 
 /*
