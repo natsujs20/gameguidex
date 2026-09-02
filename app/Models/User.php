@@ -5,6 +5,7 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -98,6 +99,48 @@ class User extends Authenticatable
     public function historial(): HasMany
     {
         return $this->hasMany(HistorialVisita::class, 'usuario_id');
+    }
+
+    /**
+     * Videojuegos que el usuario marcó como jugados.
+     */
+    public function juegosJugados(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Juego::class,
+            'juegos_jugados',
+            'usuario_id',
+            'juego_id'
+        )->withPivot('jugado_en');
+    }
+
+    /**
+     * Si el usuario ya marcó este juego como jugado.
+     */
+    public function marcoJugado(Juego $juego): bool
+    {
+        return $this->juegosJugados()
+            ->where('juegos.id', $juego->id)
+            ->exists();
+    }
+
+    /**
+     * Marca o desmarca un juego como jugado. Devuelve true si quedó
+     * marcado, false si se quitó. Mismo patrón que alternarFavorito().
+     */
+    public function alternarJugado(Juego $juego): bool
+    {
+        if ($this->marcoJugado($juego)) {
+            $this->juegosJugados()->detach($juego->id);
+
+            return false;
+        }
+
+        $this->juegosJugados()->attach($juego->id, [
+            'jugado_en' => now(),
+        ]);
+
+        return true;
     }
 
     /**

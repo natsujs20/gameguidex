@@ -83,7 +83,7 @@
 
             @auth
 
-                <div class="gtx-user">
+                <a href="{{ route('perfil.index') }}" class="gtx-user">
                     <span class="gtx-user-avatar" aria-hidden="true">
                         {{ mb_strtoupper(mb_substr(auth()->user()->nombre, 0, 1)) }}
                     </span>
@@ -91,7 +91,7 @@
                     <span class="gtx-user-name">
                         {{ auth()->user()->nombre }}
                     </span>
-                </div>
+                </a>
 
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
