@@ -26,8 +26,22 @@
             </button>
 
             <a href="{{ route('inicio') }}" class="gtx-brand">
-                <span class="gtx-brand-mark" aria-hidden="true">G</span>
-                <span class="gtx-brand-name">GameGuide<span>X</span></span>
+                {{--
+                    En pantallas angostas el logo completo (ícono +
+                    texto) choca con el resto del header, así que se
+                    usa solo el ícono cuadrado por debajo de 480px.
+                --}}
+                <picture>
+                    <source
+                        srcset="{{ asset('imagenes/logo-icono.png') }}"
+                        media="(max-width: 480px)"
+                    >
+                    <img
+                        src="{{ asset('imagenes/logo.png') }}"
+                        alt="GameGuideX"
+                        class="gtx-brand-mark"
+                    >
+                </picture>
             </a>
 
             <nav class="gtx-header-nav" aria-label="Navegación principal">
