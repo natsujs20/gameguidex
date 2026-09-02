@@ -51,6 +51,7 @@ class DatabaseSeeder extends Seeder
 
             // 3. Guías (dependen de los juegos).
             GuiaSeeder::class,
+            GuiaAmpliadaSeeder::class,
         ]);
     }
 }
