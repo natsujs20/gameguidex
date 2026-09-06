@@ -71,7 +71,7 @@
                         && file_exists(public_path(ltrim($personaje->ilustracion, '/')));
                 @endphp
                 <a href="{{ route('dragon-ball.personajes.show', $personaje) }}" class="gtx-card gtx-item-card">
-                    <div class="gtx-item-media">
+                    <div class="gtx-item-media gtx-item-media-personaje">
                         @if($ilustracionExiste)
                             <img src="{{ asset(ltrim($personaje->ilustracion, '/')) }}" alt="{{ $personaje->nombre }}" loading="lazy">
                         @else

@@ -124,7 +124,7 @@
                             && file_exists(public_path(ltrim($forma->icono, '/')));
                     @endphp
                     <a href="{{ route('dragon-ball.personajes.show', $forma) }}" class="gtx-card gtx-item-card">
-                        <div class="gtx-item-media gtx-item-media-sm">
+                        <div class="gtx-item-media gtx-item-media-sm gtx-item-media-personaje">
                             @if($iconoExiste)
                                 <img src="{{ asset(ltrim($forma->icono, '/')) }}" alt="{{ $forma->nombre }}" loading="lazy">
                             @else
@@ -165,7 +165,7 @@
                             && file_exists(public_path(ltrim($relacionado->ilustracion, '/')));
                     @endphp
                     <a href="{{ route('dragon-ball.personajes.show', $relacionado) }}" class="gtx-card gtx-item-card">
-                        <div class="gtx-item-media">
+                        <div class="gtx-item-media gtx-item-media-personaje">
                             @if($ilustracionRelExiste)
                                 <img src="{{ asset(ltrim($relacionado->ilustracion, '/')) }}" alt="{{ $relacionado->nombre }}" loading="lazy">
                             @else
