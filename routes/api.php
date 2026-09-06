@@ -14,12 +14,16 @@ use Illuminate\Support\Facades\Route;
 Route::post(
     '/register',
     [AuthController::class, 'register']
-)->name('api.register');
+)
+    ->middleware('throttle:5,1')
+    ->name('api.register');
 
 Route::post(
     '/login',
     [AuthController::class, 'login']
-)->name('api.login');
+)
+    ->middleware('throttle:5,1')
+    ->name('api.login');
 
 /*
 |--------------------------------------------------------------------------
