@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Proyecto;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class ProyectoController extends Controller
 {
     /**
-     * Listar los proyectos del usuario autenticado.
+     * Listar los proyectos del usuario autenticado, paginados.
+     * Con la tabla vacía, "data" queda como un arreglo vacío.
      */
     public function index(
         Request $request
@@ -19,7 +21,7 @@ class ProyectoController extends Controller
             ->user()
             ->proyectos()
             ->latest()
-            ->get();
+            ->paginate(10);
 
         return response()->json([
             'proyectos' => $proyectos,
@@ -29,6 +31,8 @@ class ProyectoController extends Controller
     /**
      * Crear un proyecto perteneciente
      * al usuario autenticado.
+     *
+     * Todos los campos son obligatorios y no pueden llegar vacíos.
      */
     public function store(
         Request $request
@@ -41,7 +45,7 @@ class ProyectoController extends Controller
             ],
 
             'descripcion' => [
-                'nullable',
+                'required',
                 'string',
                 'max:5000',
             ],
@@ -52,9 +56,7 @@ class ProyectoController extends Controller
             ->proyectos()
             ->create([
                 'nombre' => $datos['nombre'],
-
-                'descripcion' => $datos['descripcion']
-                    ?? null,
+                'descripcion' => $datos['descripcion'],
             ]);
 
         return response()->json([
@@ -124,11 +126,13 @@ class ProyectoController extends Controller
 
     /**
      * Eliminar un proyecto.
+     *
+     * Sin cuerpo de respuesta: 204 No Content.
      */
     public function destroy(
         Request $request,
         Proyecto $proyecto
-    ): JsonResponse {
+    ): Response {
         if (!$this->perteneceAlUsuario(
             $request,
             $proyecto
@@ -138,9 +142,7 @@ class ProyectoController extends Controller
 
         $proyecto->delete();
 
-        return response()->json([
-            'mensaje' => 'Proyecto eliminado correctamente.',
-        ]);
+        return response()->noContent();
     }
 
     /**
