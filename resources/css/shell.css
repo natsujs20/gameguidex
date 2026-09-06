@@ -1204,6 +1204,16 @@
     object-fit: cover;
 }
 
+/*
+ * Retratos de personajes (Dragon Ball): son renders de cuerpo entero
+ * mucho más altos que la caja de la tarjeta. Con el centrado por
+ * defecto, "cover" recortaba justo la zona del torso y dejaba fuera
+ * la cabeza. Anclar el recorte arriba mantiene la cara visible.
+ */
+.gtx-item-media-personaje img {
+    object-position: top;
+}
+
 .gtx-item-media-placeholder {
     width: 100%;
     height: 100%;
