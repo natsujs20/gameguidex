@@ -72,6 +72,34 @@ dashboard. Si vuelve a pasar, no asumas que el proyecto no existe:
 pregunta al usuario o conéctate directo por PDO con las credenciales
 que te dé (ver `.env`).
 
+### Repositorio Git y despliegue
+
+El proyecto **ya es un repositorio Git**, alojado en GitHub como
+`natsujs20/gameguidex`, y se despliega automáticamente en **Railway**
+(`https://gameguidex-production.up.railway.app`) sobre la misma base de
+Supabase que se usa en local — no hay una base separada para
+producción.
+
+Flujo de trabajo establecido para cualquier cambio:
+
+1. Rama nueva desde `main` (`git checkout -b tipo/nombre-descriptivo`).
+2. Commit + `git push -u origin <rama>`.
+3. `gh pr create` con resumen y plan de pruebas.
+4. `gh pr merge <n> --merge --delete-branch` (con confirmación del
+   usuario primero).
+5. Redeploy en Railway con `connect-service-source` (proyecto
+   `e2aee89f-c127-4aa2-bf6a-ff99d896b2ee`, servicio
+   `e7e09400-f426-4b43-9e98-bd6e82a2969e`, rama `main`) — **no uses
+   `redeploy` a secas**, reutiliza el build anterior y no recoge el
+   código nuevo.
+6. Verificar con `curl` contra la URL de producción antes de dar el
+   cambio por terminado.
+
+`.env` sigue sin subirse (confirmado con `git check-ignore -v .env`
+antes de cada push). Las variables de producción (incluida la
+contraseña de Supabase y `JWT_SECRET`) viven en las variables de
+entorno de Railway, no en el repositorio.
+
 ---
 
 ## 3. Estructura de archivos importantes
@@ -138,6 +166,54 @@ código antiguo y no debería usarse en vistas nuevas.
   No se ejecutó en bulk sobre el catálogo curado — hacerlo podría
   sobreescribir descripciones/franquicias ya revisadas a mano; probado
   solo con juegos fuera del catálogo actual.
+- **Trailers de Steam en la ficha de juego** (`Juego::trailer_url`):
+  extraídos con `steam:importar-juegos` desde `movies[].mp4|webm` de
+  `appdetails`, con fallback a `hls_h264` (Steam dejó de exponer
+  `mp4`/`webm` directos para varios juegos). Reproducción vía `hls.js`
+  en `resources/js/app.js` para navegadores sin HLS nativo.
+- **Perfil de usuario** (`/perfil`, `PerfilController`, requiere login):
+  edición de nombre/correo, cambio de clave (pide la clave actual),
+  eliminar cuenta (pide confirmar la clave, borra en cascada
+  favoritos/historial/juegos jugados), y "juegos jugados"
+  (`juegos_jugados`, tabla pivote con `jugado_en`) que el usuario marca
+  desde la ficha de cada juego. Estadísticas del perfil (total
+  favoritos, visitas, franquicia favorita, últimos vistos) calculadas
+  en el momento a partir de datos reales, nunca guardadas como cifra
+  fija.
+- **Recuperación de clave por correo** (`/clave-olvidada`,
+  `PasswordResetController`): flujo manual con el broker de contraseñas
+  de Laravel en vez de `Password::reset()` directo — ver §5, punto 12.
+  En producción el correo solo se registra en el log
+  (`MAIL_MAILER=log`), no se envía de verdad todavía; hay un driver de
+  Resend configurado en `config/services.php` pendiente de una API key.
+- **API REST de Proyectos** (`/api/proyectos`, JWT propio): CRUD
+  completo (`GET` lista paginada, `GET` por id, `POST`, `PUT`/`PATCH`,
+  `DELETE`) que cumple exactamente los códigos HTTP de un ejercicio de
+  evaluación (201 al crear con todos los campos obligatorios, 200
+  paginado al listar, 404 en ids inexistentes vía route model binding,
+  200 con los campos actualizados, 204 sin cuerpo al eliminar). Cada
+  proyecto pertenece a un usuario (`created_by`) y `ProyectoController`
+  verifica esa propiedad antes de mostrar/editar/borrar (403 si no es
+  el dueño).
+- **Seguridad**: límite de intentos (`throttle:5,1`) en login, registro,
+  cambio y recuperación de clave (web y API) — antes no existía ningún
+  límite y permitía fuerza bruta sin restricción (ver §5, punto 13).
+  Middleware `SecurityHeaders` global con CSP, `X-Frame-Options`,
+  `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` y
+  HSTS.
+- **15 guías largas adicionales** (`GuiaAmpliadaSeeder`, además de las 2
+  originales de `GuiaSeeder`): Monster Hunter: World, Dragon Ball Z:
+  Budokai Tenkaichi 3, Elden Ring, Dark Souls Remastered y Zelda:
+  Breath of the Wild — 17 guías en total.
+- **Arte real para 38 de los 90 personajes de Dragon Ball** (ver
+  decisión revisada en §7): descargado desde `dragonball-api.com` hacia
+  las rutas de `icono`/`ilustracion`/`retrato` que ya estaban guardadas
+  en la BD. Los 52 restantes siguen con el placeholder + buscador
+  (comportamiento intencional, no pendiente).
+- **Logo real en el header** (`public/imagenes/logo.png` /
+  `logo-icono.png`, recorte automático con PIL): reemplaza el ícono "G"
+  de texto. La intro animada con video que se probó junto con el logo
+  se **descartó** (ver §6) — el logo en el header se mantuvo.
 
 ---
 
@@ -178,6 +254,40 @@ código antiguo y no debería usarse en vistas nuevas.
     Se reemplazó por `store.steampowered.com/api/storesearch`, que
     busca por nombre directamente en el servidor de Steam — más simple
     y no depende de descargar el listado completo.
+11. **Duplicados y sobreescritura del importador de Steam**: coincidía
+    juegos por nombre exacto (`where('nombre', ...)`), así que
+    diferencias de mayúsculas/puntuación creaban un juego duplicado en
+    vez de enlazar el existente, y podía sobreescribir descripciones
+    curadas a mano. Se cambió a `orWhereLike()` (case-insensitive) y se
+    agregó un chequeo: si el juego existente no vino de Steam
+    originalmente, solo se rellenan `steam_app_id`/`steam_url`/
+    `trailer_url`, nunca se sobreescribe el resto.
+12. **`Password::reset()` incompatible con el esquema en español**: el
+    helper de Laravel arma la búsqueda del usuario con **todas** las
+    claves del arreglo de credenciales cuyo nombre contenga
+    "password"; como esta app usa la columna `clave`, terminaba
+    buscando `where('clave', $claveSinCifrar)`, que nunca encuentra
+    nada. Se resolvió validando el token a mano con
+    `Password::broker()->tokenExists()`/`deleteToken()` en vez de usar
+    `Password::reset()` directo (`PasswordResetController::restablecer`).
+13. **Sin límite de intentos en login/registro/recuperación de clave**:
+    verificado en producción con `curl` — 10 intentos de login
+    fallidos seguidos, con sesión y CSRF válidos, pasaban todos sin
+    bloqueo. Permitía fuerza bruta de contraseñas sin restricción
+    contra cualquier cuenta conocida. Corregido con `throttle:5,1` en
+    esas rutas (web y API) y en `/perfil/clave`/`DELETE /perfil`.
+14. **Faltaban cabeceras de seguridad estándar**: no había
+    `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-
+    Options` ni `Strict-Transport-Security` — la página podía embeberse
+    en un iframe ajeno (clickjacking). Corregido con el middleware
+    `SecurityHeaders` (`app/Http/Middleware/SecurityHeaders.php`),
+    aplicado globalmente.
+15. **API de Proyectos no cumplía los códigos HTTP exactos de un
+    desafío de evaluación**: `descripcion` era opcional (debía ser
+    obligatoria igual que `nombre`), el listado no estaba paginado, y
+    `DELETE` devolvía 200 con un JSON en vez de 204 sin cuerpo.
+    Corregido en `Api\ProyectoController` y verificado extremo a
+    extremo contra Supabase (201/422/200/404/204 en cada caso).
 
 ---
 
@@ -205,6 +315,27 @@ código antiguo y no debería usarse en vistas nuevas.
 - **Seeders siempre idempotentes** (`updateOrCreate`/`firstOrCreate`):
   se pueden re-ejecutar sin duplicar datos. Verificado corriendo la
   cadena completa dos veces seguidas con conteos idénticos.
+- **Intro animada del logo (video) descartada** (2026-09-05): se
+  implementó (video una vez por sesión de pestaña, con botón de
+  saltar) pero se decidió quitarla antes de la defensa del proyecto:
+  pesaba 2.2MB para algo que se ve una sola vez, era un punto de falla
+  extra en una demo en vivo, y no aportaba a lo que se evalúa
+  (funcionalidad). El logo en el header se mantuvo.
+- **Imágenes de Dragon Ball — decisión de 2026-08-27 revisada
+  parcialmente (2026-09-05)**: se había decidido no conseguir las 270
+  imágenes de personajes (ver histórico más abajo). Se retomó la idea
+  usando `dragonball-api.com` (API pública, gratis, sin auth) y se
+  consiguió arte real para 38 de los 90 personajes de nuestra base,
+  cruzando nombre/transformación contra la API. **No se aplicó a
+  ciegas**: se descartaron 2 imágenes que resultaron ser fan-art de
+  DeviantArt con firma de autor (detectadas por el nombre de archivo:
+  sufijos `-preview`, `removebg`, `by_<usuario>`, y una firma visible
+  en la imagen), y se dejaron sin imagen los personajes donde la forma
+  de la API no correspondía exactamente a la nuestra (mejor placeholder
+  honesto que arte del personaje/forma equivocada). El resto de la
+  decisión original sigue vigente: el buscador funcional es la forma
+  principal de encontrar personajes, no depender de tener arte de los
+  90.
 
 ---
 
@@ -232,6 +363,12 @@ estado temporal a corregir. Mismo criterio aplica a Monster Hunter si
 en algún momento se plantea la misma duda con sus 57 monstruos: mejor
 buscador funcional que depender de conseguir arte oficial.
 
+> **Actualización 2026-09-05**: esta decisión se revisó parcialmente,
+> no se abandonó — ver el detalle completo en §6. Se consiguió arte
+> real para 38 de los 90 personajes vía una API pública, con criterio
+> estricto (sin fan-art, sin coincidencias forzadas). Los 52 restantes
+> siguen exactamente con el mismo comportamiento descrito arriba.
+
 Cerradas en la sesión del 2026-08-27 (segunda etapa): buscador global
 multi-tipo (`/buscar`), sistema de favoritos/historial real (tablas
 `favoritos` y `historial`, RLS habilitado en ambas igual que el resto),
@@ -241,25 +378,54 @@ vivo: crear cuenta, favoritear un personaje y un monstruo, ver
 `/favoritos` agrupado por tipo, ver `/estadisticas` con conteos e
 historial reales mezclando tipos.
 
+Cerradas en la sesión del 2026-09-02 (perfil y branding): perfil de
+usuario completo (edición de datos, cambio de clave, "juegos jugados"),
+recuperación de clave por correo (§5 punto 12), trailers de Steam en
+la ficha de juego, y logo real en el header. La intro animada con
+video que se probó junto con el logo se implementó y luego se
+descartó (ver §6) tras evaluar el trade-off para la defensa.
+
+Cerradas en la sesión del 2026-09-05 (seguridad, desafío final,
+contenido): auditoría de seguridad completa contra producción con
+`curl` — encontrado y corregido el login sin límite de intentos (§5
+punto 13) y las cabeceras de seguridad faltantes (§5 punto 14); API
+de Proyectos ajustada a los códigos HTTP exactos de un desafío de
+evaluación (§5 punto 15); 15 guías largas nuevas (17 en total); arte
+real para 38 de los 90 personajes de Dragon Ball (ver actualización en
+el punto anterior y detalle en §6). Todo verificado en producción tras
+cada cambio, no solo en local.
+
 En orden de prioridad sugerido para lo que sigue:
 
-1. **Seguridad Supabase — pulir políticas RLS**: hoy las tablas de
+1. **Envío real de correos**: "¿Olvidaste tu clave?" hoy solo registra
+   el correo en el log (`MAIL_MAILER=log`), no lo envía. Hay un driver
+   de Resend ya configurado en `config/services.php` — falta cargarle
+   una API key real (local y en Railway) para que el flujo de
+   recuperación de clave funcione de punta a punta en producción.
+2. **Seguridad Supabase — pulir políticas RLS**: hoy las tablas de
    contenido tienen política de solo-lectura pública y las internas
    (incluidas `favoritos`/`historial`) están completamente bloqueadas
    desde la API REST (PostgREST) — solo Laravel las usa, vía el rol
    `postgres`. Si en el futuro se necesita acceso desde PostgREST
    (p. ej. una app móvil que hable directo con Supabase), hay que
    escribir esa política específica entonces, no abrir todo de golpe.
-2. **Enriquecer el catálogo de juegos con Steam** (opcional, bajo
+3. **Más imágenes de Dragon Ball** (opcional, bajo demanda): quedan 52
+   de 90 personajes sin arte real porque `dragonball-api.com` no tenía
+   una forma equivalente confiable (ver §6). Si se encuentra otra
+   fuente con más cobertura, aplicar el mismo criterio estricto
+   (descartar fan-art y coincidencias forzadas) antes de usarla.
+4. **Enriquecer el catálogo de juegos con Steam** (opcional, bajo
    demanda): el comando `steam:importar-juegos` ya funciona, pero no se
    corrió en bulk sobre los 48 juegos existentes porque podría
    sobreescribir descripciones y franquicias ya curadas a mano. Si se
    quiere usarlo para juegos que faltan en el catálogo, correrlo con
    `--buscar` apuntando a juegos puntuales y revisar el resultado antes
    de darlo por bueno.
-3. **Producción y seguridad avanzada**: como estaba planeado, es lo
-   último de la lista original, después de que el resto de
-   funcionalidades esté probado.
+5. **Seguridad avanzada adicional** (opcional): lo cubierto en la
+   sesión del 2026-09-05 (rate limiting + cabeceras) atiende los
+   hallazgos más críticos encontrados probando la app en vivo. Cosas
+   como 2FA, rotación de `JWT_SECRET`, o un WAF delante de Railway
+   quedan fuera de alcance salvo que se pidan explícitamente.
 
 ---
 
@@ -290,8 +456,9 @@ mensajes — no son sugerencias:
 - **Al terminar una etapa**, resumir: qué se hizo, qué archivos se
   modificaron/crearon, de dónde vienen los datos usados, qué probar, y
   sugerir un mensaje de commit (no commitear salvo que se pida).
-- **El proyecto todavía no es un repositorio Git.** Si se inicializa,
-  confirmar primero que `.env` seguirá en `.gitignore`.
+- **Todo cambio va por rama → PR → merge → redeploy en Railway**, nunca
+  commit directo a `main` sin avisar (ver flujo completo en §2). Pedir
+  confirmación antes de mergear un PR y antes de forzar el redeploy.
 
 ---
 
