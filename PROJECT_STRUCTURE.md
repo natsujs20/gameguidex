@@ -16,7 +16,7 @@ Centros de Información, cambios de infraestructura).
 | Vistas | Blade (sin framework frontend) |
 | Assets | Vite |
 | Estilos | CSS plano con variables (sin Tailwind ni preprocesador) |
-| Datos | **Actualmente MySQL local.** Supabase/PostgreSQL pendiente (ver §8) |
+| Datos | **Supabase / PostgreSQL, activa** (local y producción, ver §8) |
 
 **Importante para ejecutar el proyecto:** requiere PHP >= 8.4.1. El PHP de
 XAMPP (8.2) no sirve para `artisan`. Usar el de Herd:
@@ -89,6 +89,14 @@ Rutas en `routes/web.php`.
 | Alternar favorito | `POST /favoritos/alternar` *(requiere login)* | `FavoritoController@alternar` | — (redirect back) |
 | Estadísticas | `/estadisticas` | `EstadisticasController@index` | `estadisticas/index.blade.php` |
 | Login / Registro / Logout | `/login`, `/registro`, `/logout` | `AuthController` | `auth/*.blade.php` |
+| Perfil (ver/editar/clave/borrar) | `/perfil` *(GET/PUT/DELETE, requiere login)*, `PUT /perfil/clave` | `PerfilController` | `perfil/index.blade.php` |
+| Marcar juego como jugado | `POST /perfil/jugados/alternar` *(requiere login)* | `PerfilController@alternarJugado` | — (redirect back) |
+| Recuperar clave | `/clave-olvidada`, `/restablecer-clave/{token}` | `PasswordResetController` | `auth/olvide-clave.blade.php`, `auth/restablecer-clave.blade.php` |
+
+`POST /login`, `POST /registro`, `/clave-olvidada`,
+`/restablecer-clave`, `PUT /perfil/clave` y `DELETE /perfil` tienen
+`throttle:5,1` (5 intentos por minuto) — ver §9, se agregó tras
+encontrar que no había ningún límite en producción.
 
 ### Navegación
 
@@ -141,9 +149,10 @@ tabla por tipo — el mapeo de claves cortas está en el `morphMap` de
 | `Material`, `FuenteMaterial`, `ParteMonstruo`, `DebilidadMonstruo` | | Datos de Monster Hunter |
 | `PersonajeDragonBall` | `personajes_dragon_ball` | |
 | `TecnicaDragonBall` | `tecnicas_dragon_ball` | |
-| `Proyecto` | `proyectos` | Usado solo por la API |
+| `Proyecto` | `proyectos` | Usado solo por la API; `created_by` valida propiedad antes de editar/borrar |
 | `Favorito` | `favoritos` | Relación polimórfica (`elemento_type`/`elemento_id`), sin `updated_at` |
 | `HistorialVisita` | `historial` | Relación polimórfica; `visitado_en` se actualiza con `updateOrCreate` |
+| `User::juegosJugados()` | `juegos_jugados` (pivote) | `belongsToMany` con `Juego`, `jugado_en` en el pivote; alternar con `User::alternarJugado()` |
 
 ---
 
@@ -164,8 +173,13 @@ php artisan db:seed --class=JuegoSeeder
 
 - Rutas API: `routes/api.php`
 - Auth web (sesión): `app/Http/Controllers/AuthController.php`
+- Perfil (datos, clave, borrar cuenta, juegos jugados):
+  `app/Http/Controllers/PerfilController.php`
+- Recuperación de clave: `app/Http/Controllers/PasswordResetController.php`
+  (no usa `Password::reset()` directo — ver `CLAUDE.md` §5, punto 12)
 - Auth API (JWT propio): `app/Http/Controllers/Api/AuthController.php`
   + `app/Http/Middleware/JwtMiddleware.php`
+- API de Proyectos (CRUD completo): `app/Http/Controllers/Api/ProyectoController.php`
 - Configuración JWT: `config/jwt.php`
 
 **Pendiente:** `laravel/sanctum` está instalado pero sin uso confirmado.
@@ -175,16 +189,15 @@ Decidir en la fase de seguridad si se elimina o reemplaza al JWT manual.
 
 ## 8. Datos e infraestructura — Supabase / PostgreSQL
 
-Proyecto de Supabase: **GameGuideX** (`qicvqsrmtqxpiuofwaqj`, us-east-2).
+Proyecto de Supabase activo: **GameGuideX2** (`kbbtgobatjxegbkkzphc`,
+us-east-2) — es el segundo proyecto con ese nombre, el primero se
+eliminó tras hibernar. Detalle completo (historia, credenciales, nota
+sobre el MCP de Supabase) en `CLAUDE.md` §2.
 
 ### Estado
 
-El código **ya es compatible con PostgreSQL**; falta únicamente activar
-la conexión (requiere la contraseña de la base de datos). Mientras tanto
-la app sigue corriendo sobre MySQL local.
-
-`.env` contiene el bloque de Supabase preparado y comentado, con
-instrucciones paso a paso.
+**Activa**, en local y en producción (Railway) — no hay una base
+separada por entorno. El código es compatible con PostgreSQL.
 
 ### Cómo conectarse (importante)
 
@@ -196,21 +209,18 @@ Usar el **connection pooler en modo sesión**, no la conexión directa:
 | `DB_HOST` | `aws-0-us-east-2.pooler.supabase.com` |
 | `DB_PORT` | `5432` (modo sesión) |
 | `DB_DATABASE` | `postgres` |
-| `DB_USERNAME` | `postgres.qicvqsrmtqxpiuofwaqj` |
 | `DB_SSLMODE` | `require` |
 
 Motivos comprobados en este entorno:
 
-- `db.qicvqsrmtqxpiuofwaqj.supabase.co:5432` (conexión directa) **no es
-  accesible**: solo responde por IPv6.
+- La conexión directa `db.<ref>.supabase.co:5432` **no es accesible**
+  desde aquí: solo responde por IPv6.
 - El puerto `6543` del pooler es *modo transacción* y rompe las consultas
   preparadas que usa PDO. Por eso se usa el `5432` del pooler.
 
-### Migrar los datos
+### Migrar y sembrar los datos
 
-No se importa `desarrollo_software_1_backup.sql`: es un dump **MySQL** y
-no es compatible con PostgreSQL. El catálogo se reconstruye con los
-seeders, que son idempotentes:
+El catálogo se reconstruye con los seeders, que son idempotentes:
 
 ```bash
 php artisan migrate
@@ -218,8 +228,8 @@ php artisan db:seed
 ```
 
 `DatabaseSeeder` ejecuta la cadena completa en el orden correcto
-(juegos → centros de información → guías). Verificado: al ejecutarlo dos
-veces los conteos no cambian.
+(juegos → centros de información → guías). Verificado repetidamente:
+al ejecutarlo varias veces los conteos no cambian.
 
 ### Compatibilidad PostgreSQL — revisado
 
@@ -237,19 +247,40 @@ veces los conteos no cambian.
 
 ## 9. Seguridad — estado actual
 
-- `.env` está en `.gitignore` ✔
-- El proyecto todavía no es un repositorio Git, así que no hay
-  credenciales versionadas ✔
+- `.env` está en `.gitignore` ✔ (verificado con `git check-ignore -v .env`
+  antes de cada push).
 - No hay claves ni secretos en Blade, CSS ni JS ✔
+- **Límite de intentos** (`throttle:5,1`, 5 por minuto) en login,
+  registro, cambio y recuperación de clave — web y API
+  (`routes/web.php`, `routes/api.php`). Antes no existía ninguno; se
+  encontró probando la app en vivo con `curl` (10 intentos fallidos
+  seguidos pasaban sin bloqueo).
+- **Cabeceras de seguridad** globales vía
+  `app/Http/Middleware/SecurityHeaders.php`: `Content-Security-Policy`,
+  `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy`, `Permissions-Policy`, y `Strict-Transport-Security`
+  cuando la conexión es HTTPS.
+- CSRF habilitado (comportamiento por defecto de Laravel, verificado).
+- Contraseñas con `Hash::make`/bcrypt, columna `clave` con cast
+  `hashed` en el modelo `User`.
+- Cookies de sesión con `httponly`, `secure` y `samesite=lax`.
+- La API de Proyectos (`Api\ProyectoController`) verifica
+  `created_by === $request->user()->id` antes de mostrar/editar/borrar
+  — sin eso, cualquier usuario autenticado podría manipular proyectos
+  ajenos con solo cambiar el id en la URL.
 
 ---
 
 ## 10. Assets
 
-- Imágenes: `public/imagenes/` (`juegos/`, `monster-hunter/`, `categorias/`)
-- **Falta:** `public/imagenes/dragon-ball/budokai-tenkaichi-3/`
-  (iconos, ilustraciones y retratos de los 90 personajes). Mientras no
-  existan, las vistas muestran un placeholder con la inicial.
+- Imágenes: `public/imagenes/` (`juegos/`, `monster-hunter/`,
+  `categorias/`, `logo.png`/`logo-icono.png`).
+- `public/imagenes/dragon-ball/budokai-tenkaichi-3/` (iconos,
+  ilustraciones y retratos): **38 de los 90 personajes tienen arte
+  real** (descargado de una API pública, con criterio estricto contra
+  fan-art — ver `CLAUDE.md` §6). Los 52 restantes siguen sin archivo,
+  y las vistas muestran el placeholder con la inicial exactamente igual
+  que antes — es el mismo comportamiento de siempre, no un estado roto.
 
 ---
 
